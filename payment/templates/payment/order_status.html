@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container">
+    <div class="row">
+        <div class="col-12">  <h2 class="mt-4 mb-4">Order Status</h2>
+
+            {% if orders %}
+                {% for order in orders %}
+                    <div class="card mb-4">  <div class="card-header">
+                            Order #{{ order.id }} - {{ order.amount_paid }}
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Date Ordered:</strong> {{ order.date_ordered }}</p>
+                            <p><strong>Slot Time:</strong> {{ order.slot_time }}</p>  {% if order.date_confirmed %}
+                                <p><strong>Date Confirmed:</strong> {{ order.date_confirmed }}</p>
+                            {% endif %}
+                            {% if order.date_shipped %}
+                                <p><strong>Date Shipped:</strong> {{ order.date_shipped }}</p>
+                            {% endif %}
+
+                            {% if order.image %}  <img src="{{ order.image.url }}" alt="Order Image" class="img-fluid mb-2" style="max-height: 200px;">  {% endif %}
+                            
+                            <p><strong>Description:</strong> {{ order.description }}</p>  <p><strong>Status:</strong>
+                                {% if order.shipped %}
+                                    Shipped
+                                {% elif order.confirmed %}
+                                    Confirmed
+                                {% else %}
+                                    Pending
+                                {% endif %}
+                            </p>
+                            <button type="button" data-index="{{order.id}}" class="btn btn-danger delete-order">Remove Order</button>
+                           </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>You haven't placed any orders yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<script>
+    $(document).on('click', '.delete-order', function(e){
+    e.preventDefault();
+    // grab the product id
+    //var productid = $(this).data('index');
+
+    $.ajax({
+    type: 'POST',
+    url: `{% url 'order_delete' %}`,
+    data: {
+      order_id: $(this).data('index'),
+      csrfmiddlewaretoken: '{{ csrf_token }}',
+      action: 'post'
+    },
+    success: function(json){
+        //console.log(json)
+        //document.getElementById("cart_quantity").textContent = json.qty
+        location.reload();
+    },
+
+    error: function(xhr, errmsg, err){
+
+    }
+
+
+    });
+
+})
+</script>
+
+{% endblock %}

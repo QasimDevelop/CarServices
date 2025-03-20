@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+
+        <!-- Header-->
+        <header class="bg-dark py-5">
+            <div class="container px-4 px-lg-5 my-5">
+                <div class="text-center text-white">
+                    <h1 class="display-4 fw-bolder">Checkout</h1>
+                    <p class="lead fw-normal text-white-50 mb-0">Review Your Order...</p>
+                </div>
+            </div>
+        </header>
+        <br/>
+        <div class="container">
+            <div class="row">
+                
+                    <div class="col-md-6 offset-md-3">
+          <div class="card">
+          <div class="card-header">
+            Order Summary
+          </div>
+          <div class="card-body">
+            {% for product in cart_products %}
+                <b>{{ product.name }}:</b><br>
+                    {% if product.is_sale %}
+                        {{ product.sale_price }}
+                    {% else %}
+                        Price: Rs {{ product.price }}
+                {% endif %}
+                <br/>
+                <small>Quantity: 
+                {% for key, value in quantities.items %}
+                    {% if key == product.id|slugify %}
+                        {{ value }}
+                    {% endif %}
+                {% endfor %}</small>
+                <br/><br/>
+
+            {% endfor %}
+            <b>Total:</b>  Rs {{ totals }}
+            <br/><br/>
+            <a href="{% url 'cart_summary' %}" class="btn btn-sm btn-outline-secondary">Update Items</a>
+          </div>
+        </div>
+<br/><br/>
+<form method="POST" action="{% url 'process_order' %}">
+  {% csrf_token %}
+
+  {{ slot_form.as_p }}
+  <br/><br/>
+  <button type="submit" class="btn btn-secondary">
+    Order placed
+  </button>
+<br/><br/>
+
+
+            </div>
+        </div>
+    </div>
+
+<script>
+    $(document).ready(function() {
+        $('#id_slot_date').change(function() {
+            var selectedDate = $(this).val();
+            $.ajax({
+                url: '/payment/get_slots/', // Replace with your URL
+                type: 'GET',
+                data: {date: selectedDate},
+                dataType: 'json',
+                success: function(data) {
+                    var slotSelect = $('#id_slot_time');
+                    slotSelect.empty();
+                    $.each(data.slots, function(index, slot) {
+                        slotSelect.append($('<option>', {value: slot.id, text: slot.time}));
+                    });
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        });
+    });
+</script>
+
+
+
+
+{% endblock %}
