@@ -20,7 +20,7 @@ SECRET_KEY = 'django-insecure-x4m$gfeda-r+)u05g*bzm%8#_vz&8-wl^3epo45gqi#_eqwvtq
 API_SECRET_KEY='6c1c5ef7cbde8aea55244b617b2e7a11'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
@@ -142,3 +142,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 PAYPAL_TEST = True
 
 PAYPAL_RECEIVER_EMAIL = 'business@codemytest.com' # Business Sandbox account
+AUTH_USER_MODEL='store.User'

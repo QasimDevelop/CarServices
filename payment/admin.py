@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import DeletedOrder, ShippingAddress, Order, OrderItem,Slots
-from django.contrib.auth.models import User
+from store.models import User
 
 
 # Register the model on the admin section thing

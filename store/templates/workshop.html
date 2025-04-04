@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <h2>Pending Workshop Orders</h2>
+    <div class="row">
+        {% for order in pending_orders %}
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Order #{{ order.id }}</h5>
+                    <p class="card-text">Customer: {{ order.user.username }}</p>
+                    <p class="card-text">Date Ordered {{ order.date_ordered }}</p>
+                    <p class="card-text">Slot Time : {{ order.slot_time }}</p>
+                    <button class="btn btn-primary view-details" data-order-id="{{ order.id }}" 
+                            data-bs-toggle="modal" data-bs-target="#orderModal">
+                        View Details
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <p>No pending orders available.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal for Order Details -->
+<div class="modal fade" id="orderModal" tabindex="-1" aria-labelledby="orderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="orderModalLabel">Order Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="orderDetails">
+                Loading...
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="confirmOrder">Confirm Order</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    let currentOrderId = null;
+
+    // Handle click on view details button
+    $('.view-details').click(function() {
+        currentOrderId = $(this).data('order-id');
+        // Fetch order details
+        $.ajax({
+            url: `/get_order_details/${currentOrderId}/`,
+            method: 'GET',
+            success: function(response) {
+                $('#orderDetails').html(`
+                    <p><strong>Customer:</strong> ${response.customer_name}</p>
+                    <p><strong>Vehicle:</strong> ${response.vehicle_model}</p>
+                    <p><strong>Service Type:</strong> ${response.service_type}</p>
+                    <p><strong>Description:</strong> ${response.description}</p>
+                    <p><strong>Requested Date:</strong> ${response.date_ordered}</p>
+                `);
+            },
+            error: function() {
+                $('#orderDetails').html('Error loading order details');
+            }
+        });
+    });
+
+    // Handle confirm order button click
+    $('#confirmOrder').click(function() {
+        if (currentOrderId) {
+            $.ajax({
+                url: `/confirm_order/${currentOrderId}/`,
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        // Close modal
+                        $('#orderModal').modal('hide');
+                        // Remove the order card from the page
+                        $(`[data-order-id="${currentOrderId}"]`).closest('.col-md-6').remove();
+                        // Show success message
+                        alert('Order confirmed successfully!');
+                        // Reload page if no orders left
+                        if ($('.col-md-6').length === 0) {
+                            location.reload();
+                        }
+                    } else {
+                        alert('Error confirming order');
+                    }
+                },
+                error: function() {
+                    alert('Error confirming order');
+                }
+            });
+        }
+    });
+
+    // Function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+{% endblock %}
