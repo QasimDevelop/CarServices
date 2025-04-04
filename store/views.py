@@ -1,18 +1,19 @@
+from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from sympy import mobius
-from .models import Product, Category, Profile
+from .models import Product, Category, Profile,User
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from .forms import SignUpForm, UpdateUserForm, ChangePasswordForm, UserInfoForm
 import requests
 from payment.forms import ShippingForm
-from payment.models import ShippingAddress
+from payment.models import Order, ShippingAddress
 from ecom.settings import API_SECRET_KEY
 from django import forms
 import json
 from cart.cart import Cart
+from django.contrib.auth.decorators import login_required
 
 
 
@@ -157,36 +158,36 @@ def about(request):
 	return render(request, 'about.html', {})	
 
 def login_user(request):
-	if request.method == "POST":
-		username = request.POST['username']
-		password = request.POST['password']
-		user = authenticate(request, username=username, password=password)
-		if user is not None:
-			login(request, user)
+    if request.method == "POST":
+        username = request.POST['username']
+        password = request.POST['password']
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
 
-			# Do some shopping cart stuff
-			current_user = Profile.objects.get(user__id=request.user.id)
-			# Get their saved cart from database
-			saved_cart = current_user.old_cart
-			# Convert database string to python dictionary
-			if saved_cart:
-				# Convert to dictionary using JSON
-				converted_cart = json.loads(saved_cart)
-				# Add the loaded cart dictionary to our session
-				# Get the cart
-				cart = Cart(request)
-				# Loop thru the cart and add the items from the database
-				for key,value in converted_cart.items():
-					cart.db_add(product=key)
+            # Shopping cart stuff
+            try:
+                current_user = Profile.objects.get(user__id=request.user.id)
+                saved_cart = current_user.old_cart
+                if saved_cart:
+                    converted_cart = json.loads(saved_cart)
+                    cart = Cart(request)
+                    for key, value in converted_cart.items():
+                        cart.db_add(product=key)
+            except Profile.DoesNotExist:
+                pass
 
-			messages.success(request, ("You Have Been Logged In!"))
-			return redirect('home')
-		else:
-			messages.success(request, ("There was an error, please try again..."))
-			return redirect('login')
+            messages.success(request, "You Have Been Logged In!")
+            print(user.role)
+            if user.role == "Workshop":
+                return redirect('workshop')
+            return redirect('home')
+        else:
+            messages.error(request, "There was an error, please try again...")
+            return redirect('login')
+    else:
+        return render(request, 'login.html', {})
 
-	else:
-		return render(request, 'login.html', {})
 
 
 def logout_user(request):
@@ -197,20 +198,67 @@ def logout_user(request):
 
 
 def register_user(request):
-	form = SignUpForm()
-	if request.method == "POST":
-		form = SignUpForm(request.POST)
-		if form.is_valid():
-			form.save()
-			username = form.cleaned_data['username']
-			password = form.cleaned_data['password1']
-			# log in user
-			user = authenticate(username=username, password=password)
-			login(request, user)
-			messages.success(request, ("Username Created " ))
-			return redirect('login')
-		else:
-			messages.success(request, ("Whoops! There was a problem Registering, please try again..."))
-			return redirect('register')
-	else:
-		return render(request, 'register.html', {'form':form})
+    if request.method == "POST":
+        form = SignUpForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password2'] # password2 is correct.
+            user = authenticate(request, username=username, password=password) #add request.
+            login(request, user)
+            Profile.objects.create(user=user)
+            messages.success(request, "Username Created ")
+            return redirect('login') #or home
+        else:
+            print(form.errors)  # Add this line
+            messages.error(request, "Whoops! There was a problem Registering, please try again...")
+            return redirect('register')
+    else:
+        form = SignUpForm()
+        return render(request, 'register.html', {'form': form})
+    
+def workshop_view(request):
+    if not request.user.is_authenticated or request.user.role != "Workshop":
+        return redirect('login')
+    
+    # Get pending orders for this workshop
+    pending_orders = Order.objects.filter(
+        confirmed=False
+    )
+    
+    context = {
+        'pending_orders': pending_orders
+    }
+    
+    return render(request, 'workshop.html', context)
+
+
+@login_required
+def workshop_view(request):
+    pending_orders = Order.objects.filter(confirmed=False)
+    return render(request, 'workshop.html', {'pending_orders': pending_orders})
+
+@login_required
+def get_order_details(request, order_id):
+    try:
+        order = Order.objects.get(id=order_id)
+        data = {
+            'customer_name': order.user.username,
+            'slot_time': order.slot_time,
+            'description': order.description
+        }
+        return JsonResponse(data)
+    except Order.DoesNotExist:
+        return JsonResponse({'error': 'Order not found'}, status=404)
+
+@login_required
+def confirm_order(request, order_id):
+    if request.method == 'POST':
+        try:
+            order = Order.objects.get(id=order_id)
+            order.comfirmed = True
+            order.save()
+            return JsonResponse({'status': 'success'})
+        except Order.DoesNotExist:
+            return JsonResponse({'status': 'error'}, status=404)
+    return JsonResponse({'status': 'error'}, status=400)
